@@ -17,7 +17,7 @@ class Engine():
         self.height = height
         self.step = time_step
         self.g = gravity
-        self.coef_drag = coef_drag
+        self.coef_drag = coef_drag # õhutakistustegur, ei kasutata
         self.vBoundary = velBoundary
         self.energyloss = 0
         
