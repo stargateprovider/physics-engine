@@ -63,7 +63,8 @@ class Engine():
         
         self.mainloop()
     def stop(self):
-        self.running = True
+        self.running = False
+        self.endCondition = True
     def togglePause(self):
         self.pause = not self.pause
         
@@ -91,11 +92,9 @@ class Engine():
 
     def updateScene(self):
         self.time_left = 1 # Protsent, mis kaadrist jarel on
-        self.collisions = [0]
+        self.collisions = [0] # Siia kogutakse leitud põrkuvate kehade paarid
 
         while self.collisions and self.time_left:
-            fix_intersections(self)
-
             self.next_collision = self.time_left
             self.collisions = []
             kontrollimata = set(self.objects)
@@ -111,9 +110,12 @@ class Engine():
                 if self.debug:
                     self.errorCheck(o1, 0.1)
 
+            fix_intersections(self)
+
             if self.collisions:
                 for o in self.movingBodies:
                     o.a = o.getAcceleration()
+
                 for o in self.movingBodies:
                     o.update_position(self.next_collision)
                 self.time_left -= self.next_collision
@@ -139,20 +141,13 @@ class Engine():
         while not self.endCondition:
             self.processEvents()
             if not self.pause:
-                frameTime = self.clock.get_time() # arvestama pausiga
-                if frameTime > .25: # soltuma time_stepist
-                    frameTime = .25
-
-                self.accumulator += frameTime
-                while self.accumulator >= self.step:
-                    previous_step = self.step
-                    self.accumulator -= self.step
-                    self.updateScene()
-                    if self.debug:
-                        print(self.energy)
+##                if self.debug:
+##                        print(self.energy)
+                self.updateScene()
                 self.draw()
 
     def errorCheck(self, o, allow=0):
+        # Funktsioon vigade kontrollimiseks
         if type(o) != Circle:
             return
         if o.x-o.radius < -allow or o.x+o.radius > self.width+allow or o.y-o.radius < -allow or o.y+o.radius > self.height+allow:

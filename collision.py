@@ -31,35 +31,36 @@ def min_in_range(iterable, mini, maxi):
 def fix_intersections(engine):
     intersections = True
     while intersections:
+        #engine.draw()
         intersections = False
         kontrollimata = set(engine.objects)
-        
-        for o1 in engine.objects:
+
+        for o1 in engine.movingBodies:
             kontrollimata.remove(o1)
-            if type(o1) != Circle:
-                continue
             
-            if o1.x+o1.radius > engine.width:
-                o1.x -= o1.x + o1.radius - engine.width
-                intersections = True
-            elif o1.x-o1.radius < 0:
-                o1.x += o1.radius - o1.x
-                intersections = True
-            if o1.y+o1.radius > engine.height:
-                o1.y -= o1.y + o1.radius - engine.height
-                intersections = True
-            elif o1.y-o1.radius < 0:
-                o1.y += o1.radius - o1.y
-                intersections = True
+##            if o1.x+o1.radius > engine.width:
+##                o1.x -= o1.x + o1.radius - engine.width
+##                intersections = True
+##            elif o1.x-o1.radius < 0:
+##                o1.x += o1.radius - o1.x
+##                intersections = True
+##            if o1.y+o1.radius > engine.height:
+##                o1.y -= o1.y + o1.radius - engine.height
+##                intersections = True
+##            elif o1.y-o1.radius < 0:
+##                o1.y += o1.radius - o1.y
+##                intersections = True
                 
             for o2 in kontrollimata:
                 types = (type(o1), type(o2))
+
                 if types == (Circle, Circle):
                     dx = o1.x - o2.x
                     dy = o1.y - o2.y
                     dist = dx**2 + dy**2 
                     penetration = (o1.radius + o2.radius)**2 - dist
-                    
+
+                    # Ringid lõikuvad üle lubatud määra, tuleb eraldada
                     if penetration > 1e-10:
                         intersections = True
                         dist = sqrt(dist)
@@ -71,17 +72,50 @@ def fix_intersections(engine):
                             dir2 = Vec2D(-1, dir2[1])
                         if dir1[1] == 0:
                             dir1 = Vec2D(dir1[0], 1)
-                            dir2 = Vec2D(dir1[1], -1)
+                            dir2 = Vec2D(dir2[0], -1)#dir1[1], -1)
 
                         mSum = penetration / (o1.m+o2.m)
                         o1.x, o1.y = o1.m * mSum * dir1 + (o1.x, o1.y)
                         o2.x, o2.y = o2.m * mSum * dir2 + (o2.x, o2.y)
                         if engine.debug:
-                            print("fixedPenetration", o1.name, o2.name, penetration,
-                                  dir1, dir2, o1.x, o1.y, o2.x, o2.y)
+                            print("fixedPenetration", o1.name, o2.name, penetration, o1.x, o1.y, o2.x, o2.y)
 
-                if types == (Circle, Wall) or types == (Wall, Circle):
-                    pass
+                elif types == (Circle, Wall) or types == (Wall, Circle):
+                    c, w = (o1, o2) if types[0] == Circle else (o2, o1)
+                    dist1 = cross2D(Vec2D(c.x - w.x1, c.y - w.y1) + w.normal * c.radius, w.lineVecDir)
+                    dist2 = cross2D(Vec2D(c.x - w.x1, c.y - w.y1) - w.normal * c.radius, w.lineVecDir)
+
+                    # Ring lõikub sirgega
+                    if dist2 < 0 < dist1 or dist1 < 0 < dist2:
+
+                        # Kontrollime, millisel pool joont ring asub ning
+                        # lükkame ta tagasi selles suunas
+                        if abs(dist1) < abs(dist2):
+                            separateDir = -w.normal * dist1
+                        elif abs(dist2) < abs(dist1):
+                            separateDir = -w.normal * dist2
+                        else:
+                            separateDir = -c.getAcceleration().normalised()
+                            
+                        intersections = True
+                        c.x, c.y = separateDir + (c.x, c.y)
+                        if dot2D(separateDir, c.v) < 0:
+                            # Kui ringil on veel pinnasuunaline kiirus,
+                            # tekib koheselt põrge
+                            for col in engine.collisions:
+                                if (col.o1, col.o2) == (c,w) or (col.o1, col.o2) == (w,c):
+                                    break
+                            else:
+                                col = Collision(engine, c, w)
+                                col.normal = -separateDir.normalised()
+                                col.time = 0
+                                if col.time < engine.next_collision:
+                                    engine.collisions = [col,]
+                                    engine.next_collision = col.time
+                                elif col.time == engine.next_collision:
+                                    engine.collisions.append(col)
+                        if engine.debug:
+                            print("fixedPenetration", w.name, c.x, c.y, separateDir, dist1, dist2, w.normal)                    
                     
 
 class Collision():
@@ -168,14 +202,16 @@ class Collision():
             return (t, D_POS2)
 
     def predict_circle_wall(self, c, w):
-        a = cross2D(c.getAcceleration() / 2, w.lineVec) * self.engine.step**2
-        b = cross2D(c.v, w.lineVec) * self.engine.step
+        a = cross2D(c.getAcceleration() / 2, w.lineVecDir) * self.engine.step**2
+        b = cross2D(c.v, w.lineVecDir) * self.engine.step
         
         bestT = self.engine.next_collision # Varaseim põrge mille leiame
         bestN = None # Varaseimale ajale vastav põrge
         for n in (w.normal, -w.normal):
-            dist = cross2D(Vec2D(c.x - w.x1, c.y - w.y1) + n * c.radius, w.lineVec)
-            if dist == 0:
+            dist = cross2D(Vec2D(c.x - w.x1, c.y - w.y1) + n * c.radius, w.lineVecDir)
+            dist2 = cross2D(Vec2D(c.x - w.x1, c.y - w.y1) - n * c.radius, w.lineVecDir)
+
+            if dist == 0 or dist < 0 < dist2:
                 dot_nv = dot2D(n, c.v)
                 if dot_nv > 0 or dot2D(n, c.getAcceleration()) > 0:
                     c.contacts.add(n * c.radius + (c.x, c.y))
@@ -198,13 +234,14 @@ class Collision():
         # Kui leiti aeg ja ring liigub seina poole
         if bestN != None and dot2D(bestN, c.v + c.getAcceleration()*c.engine.step*bestT) > 0:
             return (bestT, bestN)
-
+        
     def response_circles(self, obj1, obj2):
         D_VEL = obj1.v - obj2.v
         n = self.normal
         dotP = dot2D(n, D_VEL)
-        r1 = -n*obj1.radius
-        r2 =  n*obj2.radius
+        n_norm = n.normalised()
+        r1 = -n_norm*obj1.radius
+        r2 =  n_norm*obj2.radius
         if dotP < 0:
             # Põrkenormaalisuunaline impulss
             e = (obj1.restitution + obj2.restitution) / 2
@@ -237,12 +274,13 @@ class Collision():
 ##            obj1.w += cross2D(r1, frictionImpulse) / obj1.I #.perp()
 ##            obj2.w -= cross2D(r2, frictionImpulse) / obj2.I #.perp()
             
-        else:
-            input("ERROR {} {} {} {}".format(self.time, dotP, obj1.name, obj2.name))
+        elif self.engine.debug:
+            print("False collision found {} {} {} {}".format(self.time, dotP, obj1.name, obj2.name))
 
         if dotP < 0 or dot2D(n, (obj1.getAcceleration() - obj2.getAcceleration())) <= 0:
             obj1.contacts.add(r1 + (obj1.x, obj1.y))
             obj2.contacts.add(r2 + (obj2.x, obj2.y))
+
 
     def response_circle_wall(self, c, w):
         dotP = dot2D(self.normal, c.v)
@@ -271,7 +309,7 @@ class Collision():
 ##            c.v -= frictionImpulse / c.m
 ##            c.w += cross2D(r, frictionImpulse) / c.I #.perp()            
 
-        else:
-            input("ERROR {} {} {} {}".format(self.time, dotP, c.name, w.name))
+        elif self.engine.debug:
+            print("False collision found {} {} {} {}".format(self.time, dotP, obj1.name, obj2.name))
         if dotP > 0 or dot2D(self.normal, c.getAcceleration()) > 0:
             c.contacts.add(r + (c.x, c.y))
