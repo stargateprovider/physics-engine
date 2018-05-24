@@ -17,8 +17,9 @@ class Engine():
         self.height = height
         self.step = time_step
         self.g = gravity
-        self.coef_drag = coef_drag # õhutakistustegur, ei kasutata
+        self.coef_drag = coef_drag
         self.vBoundary = velBoundary
+        self.energy = 0
         self.energyloss = 0
         
         self.time = 0 # Töötamise aeg
@@ -29,13 +30,14 @@ class Engine():
         self.pathLimit = pathLimit
         
         self.fps = fpsLimit
+        self.running = False
         self.pause = False
         self.debug = False
         self.accumulator = 0
 
         self.bgcolor = bgcolor
         pygame.init()
-        self.screen = pygame.display.set_mode([width,height])
+        self.screen = pygame.display.set_mode([width,height], RESIZABLE)
         pygame.display.set_caption(title)
         self.clock = pygame.time.Clock()
 
@@ -47,6 +49,8 @@ class Engine():
         self.objects.discard(body)
     
     def start(self, endcondition = None):
+        if self.running:
+            return True
         self.running = True
         self.endCondition = endcondition
 
@@ -70,6 +74,8 @@ class Engine():
         
     def draw(self):
         """Draws everything on screen."""
+        if not pygame.display.get_init():
+            return False
         self.screen.fill(self.bgcolor)
         for o in self.objects:
             o.move()
@@ -83,6 +89,9 @@ class Engine():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.stop()
+                try: pygame.quit()
+                except: pass
+                return
             elif event.type == KEYUP:
                 if event.key == K_SPACE:
                     self.togglePause()
@@ -141,8 +150,8 @@ class Engine():
         while not self.endCondition:
             self.processEvents()
             if not self.pause:
-##                if self.debug:
-##                        print(self.energy)
+                if self.debug:
+                    print("ENERGY", self.energy)
                 self.updateScene()
                 self.draw()
 
@@ -167,4 +176,3 @@ class Engine():
                 pygame.draw.circle(self.screen, (200,22,23), (int(o.x), int(o.y)), 2)
                 pygame.draw.circle(self.screen, (200,22,23), (int(o2.x), int(o2.y)), 2)
                 input()
-

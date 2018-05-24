@@ -9,6 +9,7 @@ class Body():
     Default parameters:
         name = ""
         color = (255,255,255)
+        fill = False
         F = Vec2D(0,0)
         a = Vec2D(0,0)
         a_const = Vec2D(0,0)
@@ -25,6 +26,7 @@ class Body():
         self.engine = engine
         self.name = ""
         self.color = (255,255,255)
+        self.fill = False
         self.F = Vec2D(0,0)
         self.a = Vec2D(0,0)
         self.const_a = Vec2D(0,0) # Mingi konstantne kiirendus
@@ -95,7 +97,7 @@ class Body():
 
     def update_position(self, x=None):
         # Keha liigutamiseks
-        return
+        pass
     def delta_position(self, x=None): return
     def getEnergy(self):
         if self.m == float("inf"):
@@ -133,7 +135,7 @@ class Circle(Body):
 ##            #self.v += r.perp() * self.w * time_step
 ##            #self.w = self.v.modulesq() / self.radius
 
-        # Suurema täpsusega Euleri integratsioon
+        # Suurema täpsusega Euleri integreerimine
         self.x += self.v[0] * time_step + (self.a[0] / 2) * time_step**2
         self.y += self.v[1] * time_step + (self.a[1] / 2) * time_step**2
         self.v += self.a * time_step
@@ -162,7 +164,10 @@ class Circle(Body):
         a = self.angle
         r = self.radius * Vec2D(cos(a), sin(a)) + (self.x, self.y)
                 
-        pygame.gfxdraw.circle(scr, int(self.x), int(self.y), self.radius, self.color)
+        if self.fill:
+            pygame.gfxdraw.filled_circle(scr, int(self.x), int(self.y), self.radius, self.color)
+        else:
+            pygame.gfxdraw.circle(scr, int(self.x), int(self.y), self.radius, self.color)
         #Kiiruse suund:
         pygame.draw.line(scr, (120,120,120), (int(self.x), int(self.y)), (int(suund[0]), int(suund[1])))
         #Pöördenurk:

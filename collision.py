@@ -57,7 +57,7 @@ def fix_intersections(engine):
                 if types == (Circle, Circle):
                     dx = o1.x - o2.x
                     dy = o1.y - o2.y
-                    dist = dx**2 + dy**2 
+                    dist = dx**2 + dy**2
                     penetration = (o1.radius + o2.radius)**2 - dist
 
                     # Ringid lõikuvad üle lubatud määra, tuleb eraldada
@@ -65,7 +65,7 @@ def fix_intersections(engine):
                         intersections = True
                         dist = sqrt(dist)
                         penetration = o1.radius + o2.radius - dist
-                        dir1 = Vec2D(dx, dy) / dist
+                        dir1 = Vec2D(dx, dy) / (dist if dist else 1)
                         dir2 = -dir1
                         if dir1[0] == 0:
                             dir1 = Vec2D(1, dir1[1])
@@ -127,7 +127,7 @@ class Collision():
         (Circle, Circle): "response_circles",
         (Circle, Wall): "response_circle_wall"
     }
-    def __init__(self, engine, o1, o2, **attr):
+    def __init__(self, engine, o1, o2):
         self.engine = engine
         self.o1 = o1
         self.o2 = o2
